@@ -1,0 +1,33 @@
+name: Windows checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check PowerShell syntax
+        shell: powershell
+        run: |
+          $issues = @()
+          Get-ChildItem scripts -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+            $issues += @($errors)
+          }
+          if ($issues.Count) { $issues | Format-List; exit 1 }
+      - name: Run offline regression checks
+        shell: powershell
+        run: python -m unittest discover -s scripts/tests -v

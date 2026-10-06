@@ -1,0 +1,18 @@
+# Local diagnostics can contain network addresses, domains and process details.
+/output/**
+!/output/README.md
+/archive/
+/.publish/
+*.etl
+*.log
+.active.json
+.env
+.env.*
+__pycache__/
+*.py[cod]
+/scripts/tests/tun report */
+/scripts/tests/tun argument */
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
