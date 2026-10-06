@@ -89,7 +89,14 @@ function Invoke-DiagProcess {
     $stderr = ''
     $exitCode = -1
     try {
-        [void]$process.Start()
+        # .NET Framework creates the stdin writer using Console.InputEncoding
+        # and flushes its preamble during Start. curl --config rejects a BOM.
+        # Restore the caller's encoding immediately after creating the process.
+        $previousInputEncoding = [Console]::InputEncoding
+        try {
+            [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
+            [void]$process.Start()
+        } finally { [Console]::InputEncoding = $previousInputEncoding }
         $outBuffer = New-Object IO.MemoryStream
         $errBuffer = New-Object IO.MemoryStream
         $outTask = $process.StandardOutput.BaseStream.CopyToAsync($outBuffer)

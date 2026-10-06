@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -144,6 +145,23 @@ class DiagnosticsTests(unittest.TestCase):
             '$result | ConvertTo-Json -Compress;')))
         self.assertTrue(result['TimedOut'])
         self.assertLess(result['Seconds'], 5)
+
+    def test_stdin_is_utf8_without_bom_across_console_encodings(self):
+        payload = 'header = example\n中文'
+        for codepage in [437, 65001]:
+            with self.subTest(codepage=codepage):
+                code = library(
+                    '$originalEncoding=[Console]::InputEncoding; try { '
+                    f'[Console]::InputEncoding = [Text.Encoding]::GetEncoding({codepage}); '
+                    f'$result = Invoke-DiagProcess -FilePath {ps_quote(sys.executable)} '
+                    '-Arguments @("-c", "import sys; print(sys.stdin.buffer.read().hex())") '
+                    f'-InputText {ps_quote(payload)}; '
+                    f'if([Console]::InputEncoding.CodePage -ne {codepage}){{throw "encoding was not restored"}}; '
+                    '$result | ConvertTo-Json -Compress; '
+                    '} finally { [Console]::InputEncoding=$originalEncoding };')
+                result = json.loads(powershell(code))
+                self.assertEqual(result['ExitCode'], 0)
+                self.assertEqual(bytes.fromhex(result['StdOut'].strip()), payload.encode('utf-8'))
 
     def test_default_directory_and_local_collector_encoding(self):
         result = json.loads(powershell(library(
